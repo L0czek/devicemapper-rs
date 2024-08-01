@@ -22,7 +22,6 @@ use crate::{
         dm_flags::DmFlags,
         dm_ioctl as dmi,
         dm_options::DmOptions,
-        dm_udev_sync::{UdevSync, UdevSyncAction},
         errors,
         types::{DevId, DmName, DmNameBuf, DmUuid},
         util::{
@@ -32,6 +31,9 @@ use crate::{
     },
     result::{DmError, DmResult, ErrorEnum},
 };
+
+#[cfg(feature = "udev-sync")]
+use crate::core::dm_udev_sync::{UdevSync, UdevSyncAction};
 
 #[cfg(target_os = "linux")]
 /// Control path for user space to pass IOCTL to kernel DM
@@ -130,6 +132,7 @@ impl DM {
 
         // Begin udev sync transaction and set DM_UDEV_PRIMARY_SOURCE_FLAG
         // if ioctl command generates uevents.
+        #[cfg(feature = "udev-sync")]
         let sync = UdevSync::begin(hdr, ioctl)?;
 
         let data_size = cmp::max(
@@ -161,7 +164,9 @@ impl DM {
                 convert_ioctl_res!(nix_ioctl(self.file.as_raw_fd(), op, buffer.as_mut_ptr()))
             } {
                 // Cancel udev sync and clean up semaphore
+                #[cfg(feature = "udev-sync")]
                 sync.cancel();
+
                 return Err(DmError::Core(errors::Error::Ioctl(
                     op as u8,
                     DeviceInfo::new(*hdr).ok().map(Box::new),
@@ -189,6 +194,7 @@ impl DM {
         let data_end = cmp::max(buffer_hdr.data_size, buffer_hdr.data_start);
 
         // Synchronize with udev event processing
+        #[cfg(feature = "udev-sync")]
         sync.end(buffer_hdr.flags)?;
         Ok((
             DeviceInfo::try_from(*buffer_hdr)?,

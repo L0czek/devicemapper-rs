@@ -63,3 +63,7 @@ unexpected_cfgs = { level = "deny", check-cfg = [
 all = { level = "deny" }
 cargo = { level = "deny" , priority = 1}
 multiple-crate-versions = { level = "allow", priority = 2 }
+
+[features]
+default = [ "udev-sync" ]
+udev-sync = []
